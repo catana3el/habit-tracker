@@ -71,6 +71,17 @@ th,td{text-align:center;font-size:11px}
 #syncDot{width:8px;height:8px;border-radius:50%;background:#10b981;position:fixed;top:16px;right:16px;z-index:100;transition:background .3s}
 #syncDot.syncing{background:#f59e0b}
 #syncDot.error{background:#ef4444}
+.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin:12px 0}
+.calendar-day{width:100%;aspect-ratio:1;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:3000;align-items:center;justify-content:center;padding:20px}
+.modal.show{display:flex}
+.modal-content{background:linear-gradient(160deg,#0f0c29,#302b63,#24243e);border-radius:20px;padding:24px;max-width:400px;width:100%;border:2px solid rgba(255,255,255,.1)}
+.modal-content h2{font-size:20px;margin-bottom:16px}
+.modal-content input{width:100%;padding:12px 16px;border-radius:12px;border:2px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff;font-size:14px;outline:none;margin-bottom:12px}
+.modal-buttons{display:flex;gap:12px;margin-top:16px}
+.modal-buttons button{flex:1;padding:12px;border-radius:12px;border:none;font-weight:700;cursor:pointer}
+.modal-buttons .btn-ok{background:linear-gradient(135deg,#7c3aed,#a78bfa);color:#fff}
+.modal-buttons .btn-cancel{background:rgba(255,255,255,.1);color:#fff;border:2px solid rgba(255,255,255,.2)}
 </style>
 </head>
 <body>
@@ -122,8 +133,22 @@ th,td{text-align:center;font-size:11px}
   <div class="nav-tab" id="tab-stats" onclick="setView('stats')">
     <div class="nav-tab-icon">📊</div><div class="nav-tab-lbl">Stats</div>
   </div>
+  <div class="nav-tab" id="tab-reto" onclick="setView('reto')">
+    <div class="nav-tab-icon">🏆</div><div class="nav-tab-lbl">Reto</div>
+  </div>
   <div class="nav-tab" id="tab-config" onclick="setView('config')">
     <div class="nav-tab-icon">⚙️</div><div class="nav-tab-lbl">Config</div>
+  </div>
+</div>
+
+<div class="modal" id="editModal">
+  <div class="modal-content">
+    <h2 id="modalTitle">Editar meta</h2>
+    <input type="number" id="modalInput" min="1" max="10" placeholder="Nueva meta">
+    <div class="modal-buttons">
+      <button class="btn-ok" onclick="saveModalGoal()">Guardar</button>
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+    </div>
   </div>
 </div>
 
@@ -140,23 +165,26 @@ const TODAY = new Date();
 function localKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 const TODAY_KEY = localKey(TODAY);
 const DAYS = ['L','M','X','J','V','S','D'];
+
+const HABITS=[
+  {id:'alcohol',label:'Alcohol',icon:'🍷',type:'bad',color:'#ef4444',unit:'copas'},
+  {id:'cafe',label:'Café',icon:'☕',type:'limit',color:'#f97316',unit:'tazas',max:2},
+  {id:'medit',label:'Meditación',icon:'🧘',type:'weekly',color:'#8b5cf6',goal:1},
+  {id:'yoga',label:'Yoga',icon:'🌿',type:'weekly',color:'#10b981',goal:2},
+  {id:'master',label:'Máster',icon:'📚',type:'weekly',color:'#3b82f6',goal:3},
+  {id:'cervical',label:'Estiram. cervicales',icon:'🔄',type:'weekly',color:'#f59e0b',goal:4},
+  {id:'skincare',label:'Skin Care',icon:'✨',type:'skincare',color:'#ec4899'},
+];
+
+let data={alcohol:{},cafe:{},medit:{},yoga:{},master:{},cervical:{},skincare:{},goals:{medit:1,yoga:2,master:3,cervical:4}};
+let selKey=TODAY_KEY, view='today', userEmail='', saveTimer=null, subscription=null, isOnline=false;
+
 function getLast7(){return Array.from({length:7},(_,i)=>{const d=new Date(TODAY);d.setDate(TODAY.getDate()-6+i);return localKey(d);});}
 function getWeekStart(k){const d=new Date(k+'T12:00:00');const day=d.getDay();d.setDate(d.getDate()+(day===0?-6:1-day));return localKey(d);}
 function getWeekKeys(k){const s=getWeekStart(k);return Array.from({length:7},(_,i)=>{const d=new Date(s+'T12:00:00');d.setDate(d.getDate()+i);return localKey(d);});}
 function dayLabel(k){const d=new Date(k+'T12:00:00');const i=d.getDay();return DAYS[i===0?6:i-1];}
-
-const HABITS=[
-  {id:'alcohol',label:'Alcohol',icon:'🍷',type:'bad',color:'#ef4444',unit:'copas'},
-  {id:'cafe',label:'Café',icon:'☕',type:'limit',color:'#f97316',unit:'tazas',max:1},
-  {id:'medit',label:'Meditación',icon:'🧘',type:'weekly',color:'#8b5cf6',goal:3},
-  {id:'yoga',label:'Yoga',icon:'🌿',type:'weekly',color:'#10b981',goal:2},
-  {id:'master',label:'Máster',icon:'📚',type:'weekly',color:'#3b82f6',goal:2},
-  {id:'cervical',label:'Estiram. cervicales',icon:'🔄',type:'weekly',color:'#f59e0b',goal:3},
-  {id:'skincare',label:'Skin Care',icon:'✨',type:'skincare',color:'#ec4899'},
-];
-
-let data={alcohol:{},cafe:{},medit:{},yoga:{},master:{},cervical:{},skincare:{}};
-let selKey=TODAY_KEY, view='today', userEmail='', saveTimer=null, subscription=null, isOnline=false;
+function getLast30(){return Array.from({length:30},(_,i)=>{const d=new Date(TODAY);d.setDate(TODAY.getDate()-29+i);return localKey(d);});}
+function getLast12Months(){const months=[];for(let i=11;i>=0;i--){const d=new Date(TODAY);d.setMonth(d.getMonth()-i);months.push({year:d.getFullYear(),month:d.getMonth()});}return months;}
 
 function login(){
   const email=document.getElementById('emailInput').value.trim().toLowerCase();
@@ -172,27 +200,16 @@ function login(){
 
 async function loadFromSupabase(){
   setSyncDot('syncing');
-  console.log('=== INICIANDO CARGA DESDE SUPABASE ===');
   try{
-    console.log('Buscando datos para:', userEmail);
-    const {data: rows, error} = await sb
+    const {data: rows} = await sb
       .from('habit_data')
       .select('*')
       .eq('user_email', userEmail)
       .maybeSingle();
     
-    console.log('Respuesta de Supabase:', {rows, error});
-    
-    if(error && error.code !== 'PGRST116'){
-      console.error('❌ Error de Supabase:', error);
-      throw error;
-    }
-    
     if(rows && rows.data){
       data = JSON.parse(JSON.stringify(rows.data));
-      console.log('✅ Datos cargados de Supabase:', data);
     } else {
-      console.log('⚠️ No hay datos en Supabase, creando registros iniciales');
       for(let i=0;i<10;i++){
         const d=new Date(TODAY);
         d.setDate(TODAY.getDate()-i);
@@ -201,7 +218,6 @@ async function loadFromSupabase(){
     }
     
     isOnline=true;
-    console.log('🟢 isOnline = true');
     setSyncDot('ok');
     document.getElementById('loginScreen').style.display='none';
     document.getElementById('userEmail').textContent=userEmail;
@@ -209,9 +225,8 @@ async function loadFromSupabase(){
     render();
     subscribeToChanges();
   } catch(e){
-    console.error('❌ Error al cargar:', e);
+    console.error('Error loading:', e);
     isOnline=false;
-    console.log('🔴 isOnline = false');
     setSyncDot('error');
     try{
       const s=localStorage.getItem('bienestar-v2');
@@ -227,69 +242,36 @@ async function loadFromSupabase(){
 function subscribeToChanges(){
   if(!isOnline) return;
   if(subscription) subscription.unsubscribe();
-  
   subscription = sb
     .channel('db-changes-'+userEmail)
-    .on('postgres_changes', {
-      event: 'UPDATE',
-      schema: 'public',
-      table: 'habit_data',
-      filter: 'user_email=eq.'+userEmail
-    }, (payload) => {
+    .on('postgres_changes', {event: 'UPDATE', schema: 'public', table: 'habit_data', filter: 'user_email=eq.'+userEmail}, (payload) => {
       if(payload.new && payload.new.data){
         data = JSON.parse(JSON.stringify(payload.new.data));
         render();
       }
     })
-    .subscribe((status)=>{
-      if(status==='SUBSCRIBED'){
-        setSyncDot('ok');
-      }
-    });
+    .subscribe();
 }
 
 async function pushToSupabase(){
-  console.log('💾 pushToSupabase() llamado. isOnline:', isOnline);
-  if(!isOnline){
-    console.log('⚠️ isOnline=false, guardando solo localmente');
-    localStorage.setItem('bienestar-v2', JSON.stringify(data));
-    return;
-  }
+  if(!isOnline) return;
   setSyncDot('syncing');
   try{
     const dataToSave = JSON.parse(JSON.stringify(data));
-    console.log('📤 Guardando en Supabase:', userEmail, dataToSave);
-    
-    const {data: existing} = await sb
-      .from('habit_data')
-      .select('id')
-      .eq('user_email', userEmail)
-      .maybeSingle();
-    
-    console.log('🔍 Registro existe?', !!existing);
-    
+    const {data: existing} = await sb.from('habit_data').select('id').eq('user_email', userEmail).maybeSingle();
     let error;
     if(existing && existing.id){
-      const result = await sb
-        .from('habit_data')
-        .update({data: dataToSave, updated_at: new Date().toISOString()})
-        .eq('user_email', userEmail);
+      const result = await sb.from('habit_data').update({data: dataToSave, updated_at: new Date().toISOString()}).eq('user_email', userEmail);
       error = result.error;
-      console.log('🔄 Actualizado. Error:', error);
     } else {
-      const result = await sb
-        .from('habit_data')
-        .insert({user_email: userEmail, data: dataToSave, updated_at: new Date().toISOString()});
+      const result = await sb.from('habit_data').insert({user_email: userEmail, data: dataToSave, updated_at: new Date().toISOString()});
       error = result.error;
-      console.log('➕ Insertado. Error:', error);
     }
-    
     if(error) throw error;
-    console.log('✅ Guardado en Supabase correctamente');
     localStorage.setItem('bienestar-v2', JSON.stringify(data));
     setSyncDot('ok');
   } catch(e){
-    console.error('❌ Error al guardar en Supabase:', e);
+    console.error('Error saving:', e);
     setSyncDot('error');
     localStorage.setItem('bienestar-v2', JSON.stringify(data));
   }
@@ -297,32 +279,22 @@ async function pushToSupabase(){
 
 function scheduleSave(){
   clearTimeout(saveTimer);
-  console.log('⏱️ Programando guardado en 1 segundo...');
-  saveTimer=setTimeout(()=>{
-    console.log('🔄 Iniciando pushToSupabase()...');
-    pushToSupabase();
-  },1000);
+  saveTimer=setTimeout(()=>pushToSupabase(),1000);
 }
 
 function setSyncDot(state){
   const d=document.getElementById('syncDot');
   d.style.background=state==='ok'?'#10b981':state==='syncing'?'#f59e0b':'#ef4444';
-  d.title=state==='ok'?'Sincronizado':state==='syncing'?'Guardando...':'Error de sincronización';
+  d.title=state==='ok'?'Sincronizado':state==='syncing'?'Guardando...':'Error';
 }
 
 window.onload=function(){
-  console.log('🚀 Aplicación cargada');
   document.getElementById('todayLabel').textContent=TODAY.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
   const saved=localStorage.getItem('bienestar-email');
-  console.log('📍 Email guardado en localStorage:', saved);
   if(saved){
-    console.log('✅ Encontrado email, intentando cargar datos...');
     document.getElementById('emailInput').value=saved;
     userEmail=saved;
     loadFromSupabase();
-  } else {
-    console.log('❌ No hay email guardado, mostrando pantalla de login');
-    document.getElementById('loginScreen').style.display='flex';
   }
 };
 
@@ -330,6 +302,7 @@ function getNum(id,k){return Number(data[id]?.[k]||0);}
 function getBool(id,k){return !!data[id]?.[k];}
 function getSkin(k){return data.skincare?.[k]||{am:false,pm:false};}
 function weekCount(id){return getWeekKeys(selKey).filter(k=>data[id]?.[k]).length;}
+function getGoal(id){return data.goals?.[id]||HABITS.find(h=>h.id===id)?.goal||1;}
 function cleanStreak(){let s=0;for(let i=0;i<365;i++){const d=new Date(TODAY);d.setDate(TODAY.getDate()-i);const k=localKey(d);if(data.alcohol?.[k]!==undefined&&Number(data.alcohol[k])===0)s++;else break;}return s;}
 function boolStreak(id){let s=0;for(let i=0;i<365;i++){const d=new Date(TODAY);d.setDate(TODAY.getDate()-i);if(data[id]?.[localKey(d)])s++;else break;}return s;}
 function skincareStreak(){let s=0;for(let i=0;i<365;i++){const d=new Date(TODAY);d.setDate(TODAY.getDate()-i);const sk=data.skincare?.[localKey(d)]||{};if(sk.am&&sk.pm)s++;else break;}return s;}
@@ -350,16 +323,17 @@ function render(){
   document.getElementById('btnNext').disabled=isToday;
   document.getElementById('tab-today').classList.toggle('active',view==='today');
   document.getElementById('tab-stats').classList.toggle('active',view==='stats');
+  document.getElementById('tab-reto').classList.toggle('active',view==='reto');
   document.getElementById('tab-config').classList.toggle('active',view==='config');
 
   const wk=getWeekKeys(TODAY_KEY);
   const scores=[
     getNum('alcohol',TODAY_KEY)===0,
     getNum('cafe',TODAY_KEY)<=1,
-    wk.filter(k=>data.medit?.[k]).length>=3,
-    wk.filter(k=>data.yoga?.[k]).length>=2,
-    wk.filter(k=>data.master?.[k]).length>=2,
-    wk.filter(k=>data.cervical?.[k]).length>=3,
+    wk.filter(k=>data.medit?.[k]).length>=getGoal('medit'),
+    wk.filter(k=>data.yoga?.[k]).length>=getGoal('yoga'),
+    wk.filter(k=>data.master?.[k]).length>=getGoal('master'),
+    wk.filter(k=>data.cervical?.[k]).length>=getGoal('cervical'),
     getSkin(TODAY_KEY).am&&getSkin(TODAY_KEY).pm,
   ];
   const done=scores.filter(Boolean).length,total=scores.length,pct=Math.round(done/total*100);
@@ -372,6 +346,7 @@ function render(){
 
   if(view==='today')renderToday();
   else if(view==='stats')renderStats();
+  else if(view==='reto')renderReto();
   else renderConfig();
 }
 
@@ -380,36 +355,43 @@ function renderToday(){
   let h='<div style="display:flex;flex-direction:column;gap:0">';
   h+='<div class="section-lbl">Reducir 📉</div>';
   HABITS.filter(x=>x.type==='bad'||x.type==='limit').forEach(hb=>{
-    const val=getNum(hb.id,selKey),isLim=hb.type==='limit',over=isLim&&val>hb.max;
-    const ok=isLim?(val<=hb.max&&val>0):val===0;
-    const border=over?hb.color:ok?'#10b981':'rgba(255,255,255,0.15)';
-    const bg=over?hb.color+'18':ok?'rgba(16,185,129,0.10)':'rgba(255,255,255,0.07)';
-    const sc=over?hb.color:ok?'#10b981':val===0&&!isLim?'#10b981':'rgba(255,255,255,.5)';
-    let status=isLim?(val===0?'Sin café hoy':over?val+' tazas — límite superado ⚠️':val+'/'+hb.max+' taza hoy ✅'):(val===0?'Sin alcohol hoy ✅':val+' '+hb.unit+' hoy');
+    const val=getNum(hb.id,selKey),isLim=hb.type==='limit';
+    let border,bg,sc,btnColor;
+    
+    if(isLim){
+      if(val>hb.max+2){border='#ef4444';bg='rgba(239,68,68,0.10)';sc='#ef4444';btnColor='#ef4444';}
+      else if(val>hb.max){border='#f97316';bg='rgba(249,115,22,0.10)';sc='#f97316';btnColor='#f97316';}
+      else{border='#10b981';bg='rgba(16,185,129,0.10)';sc='#10b981';btnColor='#10b981';}
+    } else {
+      if(val>=3){border='#ef4444';bg='rgba(239,68,68,0.10)';sc='#ef4444';btnColor='#ef4444';}
+      else if(val>=1){border='#f97316';bg='rgba(249,115,22,0.10)';sc='#f97316';btnColor='#f97316';}
+      else{border='#10b981';bg='rgba(16,185,129,0.10)';sc='#10b981';btnColor='#10b981';}
+    }
+    
+    let status=isLim?(val===0?'Sin café hoy ✅':val<=hb.max?val+'/'+hb.max+' tazas hoy ✅':val+' tazas — alerta ⚠️'):(val===0?'Sin alcohol hoy ✅':val+' '+hb.unit+' hoy ⚠️');
     const cs=cleanStreak();
     let streak=!isLim&&cs>=10?'<div class="card-streak" style="color:#fbbf24">🏆 '+cs+' días sin alcohol</div>':(!isLim&&cs>0?'<div class="card-streak" style="color:#10b981">🌟 '+cs+' días — objetivo: 10</div>':'');
-    const sc2=over?hb.color:'#10b981';
     h+=`<div class="card" style="background:${bg};border-color:${border}">
       <div><div class="card-icon">${hb.icon}</div><div class="card-name">${hb.label}</div>
       <div class="card-status" style="color:${sc}">${status}</div>${streak}</div>
       <div class="stepper">
-        <button class="step-btn" style="color:${sc2};border-color:${sc2}" onclick="changeNum('${hb.id}',${val-1})">−</button>
+        <button class="step-btn" style="color:${btnColor};border-color:${btnColor}" onclick="changeNum('${hb.id}',${val-1})">−</button>
         <span class="step-val">${val}</span>
-        <button class="step-btn" style="color:#fff;background:${sc2};border-color:${sc2}" onclick="changeNum('${hb.id}',${val+1})">+</button>
+        <button class="step-btn" style="color:#fff;background:${btnColor};border-color:${btnColor}" onclick="changeNum('${hb.id}',${val+1})">+</button>
       </div></div>`;
   });
   h+='<div class="section-lbl" style="margin-top:8px">Objetivos semanales 📅</div>';
   HABITS.filter(x=>x.type==='weekly').forEach(hb=>{
-    const done=getBool(hb.id,selKey),wc=weekCount(hb.id),met=wc>=hb.goal;
+    const done=getBool(hb.id,selKey),wc=weekCount(hb.id),goal=getGoal(hb.id),met=wc>=goal;
     const bs=boolStreak(hb.id);
-    const sk=bs>1?`<div class="card-streak" style="color:${hb.color}">🔥 ${bs} días seguidos</div>`:'';
-    h+=`<div class="card" style="background:${done?hb.color+'25':'rgba(255,255,255,0.07)'};border-color:${done?hb.color:'rgba(255,255,255,0.12)'}" onclick="toggleBool('${hb.id}')">
+    const sk=bs>1?`<div class="card-streak" style="color:#10b981">🔥 ${bs} días seguidos</div>`:'';
+    h+=`<div class="card" style="background:${done?'#10b98125':'rgba(255,255,255,0.07)'};border-color:${done?'#10b981':'rgba(255,255,255,0.12)'}" onclick="toggleBool('${hb.id}')">
       <div><div class="card-icon">${hb.icon}</div><div class="card-name">${hb.label}</div>
-      <div class="card-status" style="color:${done?hb.color:'rgba(255,255,255,.45)'}">${done?'Hecho ✅':'Pendiente'}</div>${sk}</div>
+      <div class="card-status" style="color:${done?'#10b981':'rgba(255,255,255,.45)'}">${done?'Hecho ✅':'Pendiente'}</div>${sk}</div>
       <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-        <div class="week-circle" style="border-color:${met?hb.color:'rgba(255,255,255,.15)'};background:${met?hb.color+'30':'transparent'}">
-          <span class="week-num" style="color:${met?hb.color:'rgba(255,255,255,.6)'}">${wc}</span>
-          <span class="week-denom">/${hb.goal}</span>
+        <div class="week-circle" style="border-color:${met?'#10b981':'rgba(255,255,255,.15)'};background:${met?'#10b98130':'transparent'}">
+          <span class="week-num" style="color:${met?'#10b981':'rgba(255,255,255,.6)'}">${wc}</span>
+          <span class="week-denom">/${goal}</span>
         </div><span class="week-lbl">esta semana</span>
       </div></div>`;
   });
@@ -443,8 +425,21 @@ function renderStats(){
     h+=`<tr><td style="font-size:11px;color:rgba(255,255,255,.7);padding-right:4px;white-space:nowrap">${hb.icon} ${hb.label}</td>`;
     last7.forEach(k=>{
       let bg,txt;
-      if(hb.type==='bad'){const v=getNum(hb.id,k);bg=v===0?'#10b981':v>0?hb.color+'55':'rgba(255,255,255,.08)';txt=v===0?'✓':v||'–';}
-      else if(hb.type==='limit'){const v=getNum(hb.id,k);bg=v===0?'rgba(255,255,255,.08)':v<=hb.max?'#10b981':hb.color+'88';txt=v===0?'–':v;}
+      if(hb.type==='bad'){
+        const v=getNum(hb.id,k);
+        if(v>=3)bg='#ef4444';
+        else if(v>=1)bg='#f97316';
+        else bg='#10b981';
+        txt=v===0?'✓':v||'–';
+      }
+      else if(hb.type==='limit'){
+        const v=getNum(hb.id,k);
+        if(v>hb.max+2)bg='#ef4444';
+        else if(v>hb.max)bg='#f97316';
+        else if(v===0)bg='rgba(255,255,255,.08)';
+        else bg='#10b981';
+        txt=v===0?'–':v;
+      }
       else{const d=getBool(hb.id,k);bg=d?'#10b981':'rgba(255,255,255,.08)';txt=d?'✓':'–';}
       h+=`<td><div class="cell" style="background:${bg}">${txt}</div></td>`;
     });h+='</tr>';
@@ -452,20 +447,80 @@ function renderStats(){
   h+='<tr><td style="font-size:11px;color:rgba(255,255,255,.7);padding-right:4px">✨ Skin Care</td>';
   last7.forEach(k=>{const sk=getSkin(k),both=sk.am&&sk.pm,one=sk.am||sk.pm;h+=`<td><div class="cell" style="background:${both?'#ec4899':one?'#ec489966':'rgba(255,255,255,.08)'}">${both?'✓':one?'½':'–'}</div></td>`;});
   h+='</tr></tbody></table></div></div>';
-  h+='<div class="stats-box"><div class="section-lbl">Objetivos semanales</div>';
-  HABITS.filter(x=>x.type==='weekly').forEach(hb=>{
-    const wc=weekCount(hb.id),met=wc>=hb.goal,p=Math.min(100,Math.round(wc/hb.goal*100));
-    h+=`<div class="bar-row"><div class="bar-head"><span style="opacity:.85">${hb.icon} ${hb.label}</span><span style="color:${met?hb.color:'rgba(255,255,255,.5)'};font-weight:700">${wc}/${hb.goal} ${met?'✅':''}</span></div>
-    <div class="bar-track"><div class="bar-fill" style="width:${p}%;background:${hb.color}"></div></div>
-    <div class="bar-sub">${met?'¡Objetivo cumplido!':wc===0?'0 de '+hb.goal+' sesiones':'Faltan '+(hb.goal-wc)+' sesión'+(hb.goal-wc!==1?'es':'')}</div></div>`;
+  
+  h+='<div class="stats-box"><div class="section-lbl">Calendario últimos 30 días</div>';
+  const last30=getLast30();
+  h+='<div class="calendar-grid" style="grid-template-columns:repeat(10,1fr);gap:2px">';
+  last30.forEach(k=>{
+    const meditDone=data.medit?.[k]?1:0,yogaDone=data.yoga?.[k]?1:0,masterDone=data.master?.[k]?1:0,cervicalDone=data.cervical?.[k]?1:0;
+    const completed=meditDone+yogaDone+masterDone+cervicalDone;
+    const color=completed===0?'rgba(255,255,255,.08)':completed===1?'#10b98133':completed===2?'#10b98166':completed===3?'#10b98199':'#10b981';
+    h+=`<div class="calendar-day" style="background:${color};width:100%;aspect-ratio:1;border-radius:3px;font-size:7px;padding:1px">${new Date(k+'T12:00:00').getDate()}</div>`;
   });
-  h+='</div><div class="stats-box"><div class="section-lbl">Rachas actuales 🔥</div>';
-  HABITS.filter(x=>x.type!=='limit').forEach(hb=>{
-    const s=hb.type==='bad'?cleanStreak():hb.type==='skincare'?skincareStreak():boolStreak(hb.id);
-    const lbl=hb.type==='bad'?'días sin alcohol':hb.type==='skincare'?'días completos':'días seguidos';
-    const gold=hb.type==='bad'&&s>=10;
+  h+='</div></div>';
+  
+  h+='<div class="stats-box"><div class="section-lbl">Comparativa: Este mes vs Mes pasado</div>';
+  const thisMonth=new Date(TODAY).getMonth();const thisYear=new Date(TODAY).getFullYear();
+  const thisMonthDays=Array.from({length:new Date(thisYear,thisMonth+1,0).getDate()},(_,i)=>{const d=new Date(thisYear,thisMonth,i+1);return localKey(d);});
+  const lastMonthDays=Array.from({length:new Date(thisYear,thisMonth,0).getDate()},(_,i)=>{const d=new Date(thisYear,thisMonth-1,i+1);return localKey(d);});
+  
+  HABITS.filter(x=>x.type==='weekly').forEach(hb=>{
+    const thisCount=thisMonthDays.filter(k=>data[hb.id]?.[k]).length;
+    const lastCount=lastMonthDays.filter(k=>data[hb.id]?.[k]).length;
+    const maxV=Math.max(thisCount,lastCount,1);
+    const pThis=Math.round(thisCount/maxV*100),pLast=Math.round(lastCount/maxV*100);
+    const diff=thisCount-lastCount;
+    const diffColor=diff>0?'#10b981':diff<0?'rgba(255,255,255,.5)':'rgba(255,255,255,.5)';
+    const diffTxt=diff>0?`+${diff}`:diff<0?`${diff}`:'=';
+    h+=`<div class="bar-row"><div class="bar-head"><span>${hb.icon} ${hb.label}</span></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div style="flex:1">
+        <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:3px">Este mes</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pThis}%;background:#10b981"></div></div>
+        <div style="font-size:12px;font-weight:700;margin-top:3px">${thisCount}</div>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:11px;color:rgba(255,255,255,.5);margin-bottom:3px">Mes pasado</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pLast}%;background:rgba(255,255,255,.2)"></div></div>
+        <div style="font-size:12px;font-weight:700;margin-top:3px">${lastCount}</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:13px;font-weight:700;color:${diffColor}">${diffTxt}</div>
+      </div>
+    </div></div>`;
+  });
+  h+='</div></div>';
+  el.innerHTML=h;
+}
+
+function renderReto(){
+  const el=document.getElementById('mainContent');
+  let h='<div style="display:flex;flex-direction:column;gap:0">';
+  h+='<div class="stats-box"><div class="section-lbl">🏆 Modo Reto</div>';
+  h+='<div style="font-size:14px;opacity:.7;margin-bottom:16px">Bate tu propio récord y consigue rachas épicas</div>';
+  
+  HABITS.filter(x=>x.type==='weekly').forEach(hb=>{
+    const s=boolStreak(hb.id);
+    const personalRecord=Math.ceil(getGoal(hb.id)*4);
+    const progress=Math.min(100,Math.round(s/personalRecord*100));
+    h+=`<div class="bar-row" style="background:rgba(255,255,255,.05);padding:12px;border-radius:12px;margin-bottom:10px">
+      <div class="bar-head">
+        <span style="font-weight:700">${hb.icon} ${hb.label}</span>
+        <span style="color:${s>=personalRecord?'#fbbf24':'#10b981'};font-weight:700">${s} días</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${progress}%;background:${hb.color}"></div></div>
+      <div style="font-size:12px;color:rgba(255,255,255,.6);margin-top:6px">Objetivo personal: ${personalRecord} días | ${s>=personalRecord?'🏆 ¡RECORD!':'En progreso'}</div>
+    </div>`;
+  });
+  
+  h+='</div><div class="stats-box"><div class="section-lbl">📈 Rachas Actuales</div>';
+  const cs=cleanStreak();
+  h+=`<div class="streak-row"><span style="font-size:14px;opacity:.85">🍷 Sin alcohol</span>
+    <span class="streak-pill" style="background:${cs>=10?'#fbbf2430':'#ef444455'};color:${cs>=10?'#fbbf24':'#ef4444'}">${cs>=10?'🏆 '+cs+' días':''+cs+' días'}</span></div>`;
+  HABITS.filter(x=>x.type==='weekly').forEach(hb=>{
+    const s=boolStreak(hb.id);
     h+=`<div class="streak-row"><span style="font-size:14px;opacity:.85">${hb.icon} ${hb.label}</span>
-    <span class="streak-pill" style="background:${gold?'#fbbf2430':s>0?hb.color+'30':'rgba(255,255,255,.07)'};color:${gold?'#fbbf24':s>0?hb.color:'rgba(255,255,255,.35)'}">${s>0?(gold?'🏆':'🔥')+' '+s+' '+lbl:'—'}</span></div>`;
+      <span class="streak-pill" style="background:${s>0?hb.color+'30':'rgba(255,255,255,.07)'};color:${s>0?hb.color:'rgba(255,255,255,.35)'}">${s>0?'🔥 '+s+' días':'—'}</span></div>`;
   });
   h+='</div></div>';
   el.innerHTML=h;
@@ -473,40 +528,104 @@ function renderStats(){
 
 function renderConfig(){
   const el=document.getElementById('mainContent');
-  el.innerHTML=`<div style="display:flex;flex-direction:column;gap:12px">
-    <div style="background:rgba(255,255,255,.07);border-radius:20px;padding:20px">
-      <div class="section-lbl" style="margin-bottom:12px">Cuenta</div>
-      <div style="font-size:14px;opacity:.7;margin-bottom:16px">Conectado como:<br><strong style="color:#a78bfa">${userEmail}</strong></div>
-      <button onclick="logout()" style="width:100%;padding:12px;border-radius:12px;border:2px solid #ef4444;background:transparent;color:#ef4444;font-size:14px;font-weight:700;cursor:pointer">
-        Cerrar sesión
-      </button>
-    </div>
-    <div style="background:rgba(255,255,255,.07);border-radius:20px;padding:20px">
-      <div class="section-lbl" style="margin-bottom:12px">Sincronización</div>
-      <div style="font-size:13px;opacity:.6;margin-bottom:12px">Los datos se sincronizan automáticamente entre todos tus dispositivos.</div>
-      <button onclick="forceSync()" style="width:100%;padding:12px;border-radius:12px;border:2px solid #a78bfa;background:transparent;color:#a78bfa;font-size:14px;font-weight:700;cursor:pointer">
-        🔄 Sincronizar ahora
-      </button>
-    </div>
-  </div>`;
+  let h='<div style="display:flex;flex-direction:column;gap:12px">';
+  h+='<div style="background:rgba(255,255,255,.07);border-radius:20px;padding:20px"><div class="section-lbl" style="margin-bottom:12px">Metas Personalizadas</div>';
+  HABITS.filter(x=>x.type==='weekly').forEach(hb=>{
+    const goal=getGoal(hb.id);
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding:12px;background:rgba(255,255,255,.05);border-radius:12px">
+      <span style="font-weight:700">${hb.icon} ${hb.label}</span>
+      <button onclick="openGoalModal('${hb.id}','${hb.label}',${goal})" style="padding:6px 12px;border-radius:8px;border:2px solid #10b981;background:transparent;color:#10b981;font-weight:700;cursor:pointer">${goal}/sem</button>
+    </div>`;
+  });
+  h+='<button onclick="addCustomHabit()" style="width:100%;padding:12px;border-radius:12px;border:2px solid #a78bfa;background:transparent;color:#a78bfa;font-weight:700;cursor:pointer;margin-top:12px">+ Añadir Meta Personalizada</button>';
+  h+='</div>';
+  h+='<div style="background:rgba(255,255,255,.07);border-radius:20px;padding:20px"><div class="section-lbl" style="margin-bottom:12px">Exportar Datos</div>';
+  h+='<button onclick="exportData()" style="width:100%;padding:12px;border-radius:12px;border:2px solid #a78bfa;background:transparent;color:#a78bfa;font-weight:700;cursor:pointer;margin-bottom:12px">📥 Descargar JSON</button>';
+  h+='<button onclick="exportCSV()" style="width:100%;padding:12px;border-radius:12px;border:2px solid #3b82f6;background:transparent;color:#3b82f6;font-weight:700;cursor:pointer">📊 Descargar CSV</button>';
+  h+='</div><div style="background:rgba(255,255,255,.07);border-radius:20px;padding:20px"><div class="section-lbl" style="margin-bottom:12px">Cuenta</div>';
+  h+=`<div style="font-size:14px;opacity:.7;margin-bottom:16px">Conectado como:<br><strong style="color:#a78bfa">${userEmail}</strong></div>
+  <button onclick="logout()" style="width:100%;padding:12px;border-radius:12px;border:2px solid #ef4444;background:transparent;color:#ef4444;font-weight:700;cursor:pointer">Cerrar sesión</button></div></div>`;
+  el.innerHTML=h;
+}
+
+function openGoalModal(id,label,current){
+  document.getElementById('modalTitle').textContent=`Meta para ${label}`;
+  document.getElementById('modalInput').type='number';
+  document.getElementById('modalInput').placeholder='Meta';
+  document.getElementById('modalInput').value=current;
+  document.getElementById('modalInput').dataset.habitId=id;
+  document.getElementById('editModal').classList.add('show');
+}
+
+function closeModal(){
+  document.getElementById('editModal').classList.remove('show');
+}
+
+function saveModalGoal(){
+  const habitId=document.getElementById('modalInput').dataset.habitId;
+  const newGoal=parseInt(document.getElementById('modalInput').value)||1;
+  if(!data.goals)data.goals={};
+  data.goals[habitId]=Math.max(1,Math.min(10,newGoal));
+  console.log('Meta guardada:', habitId, data.goals[habitId]);
+  localStorage.setItem('bienestar-v2', JSON.stringify(data));
+  scheduleSave();
+  closeModal();
+  render();
+  showToast('Meta actualizada','✅');
+}
+
+function addCustomHabit(){
+  document.getElementById('modalTitle').textContent='Añadir Meta Personalizada';
+  document.getElementById('modalInput').type='text';
+  document.getElementById('modalInput').placeholder='Nombre del hábito';
+  document.getElementById('modalInput').value='';
+  document.getElementById('modalInput').dataset.habitId='custom';
+  document.getElementById('editModal').classList.add('show');
+}
+
+function exportData(){
+  const json=JSON.stringify(data,null,2);
+  const blob=new Blob([json],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`bienestar-${TODAY_KEY}.json`;
+  a.click();
+  showToast('Datos exportados','📥');
+}
+
+function exportCSV(){
+  const last30=getLast30();
+  let csv='Fecha,Alcohol,Café,Meditación,Yoga,Máster,Estiramientos,Skincare\n';
+  last30.forEach(k=>{
+    const a=getNum('alcohol',k);
+    const c=getNum('cafe',k);
+    const m=getBool('medit',k)?'✓':'';
+    const y=getBool('yoga',k)?'✓':'';
+    const ma=getBool('master',k)?'✓':'';
+    const ce=getBool('cervical',k)?'✓':'';
+    const sk=getSkin(k).am&&getSkin(k).pm?'✓':getSkin(k).am||getSkin(k).pm?'½':'';
+    csv+=`${k},${a},${c},${m},${y},${ma},${ce},${sk}\n`;
+  });
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`bienestar-${TODAY_KEY}.csv`;
+  a.click();
+  showToast('CSV exportado','📊');
 }
 
 function logout(){
   localStorage.removeItem('bienestar-email');
-  if(subscription) subscription.unsubscribe();
+  if(subscription)subscription.unsubscribe();
   location.reload();
-}
-
-async function forceSync(){
-  await pushToSupabase();
-  showToast('¡Sincronizado!','✅');
 }
 
 function changeNum(id,val){
   if(val<0)val=0;
   if(!data[id])data[id]={};
   data[id][selKey]=val;
-  console.log('📝 Cambio guardado:', id, selKey, val);
   scheduleSave();
   if(id==='alcohol'&&val===0)showToast('¡Sin alcohol hoy!','🌟');
   render();
