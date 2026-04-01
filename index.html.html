@@ -563,15 +563,28 @@ function closeModal(){
 
 function saveModalGoal(){
   const habitId=document.getElementById('modalInput').dataset.habitId;
-  const newGoal=parseInt(document.getElementById('modalInput').value)||1;
-  if(!data.goals)data.goals={};
-  data.goals[habitId]=Math.max(1,Math.min(10,newGoal));
-  console.log('Meta guardada:', habitId, data.goals[habitId]);
+  const inputVal=document.getElementById('modalInput').value;
+  
+  if(habitId==='custom'){
+    if(!inputVal.trim()){
+      showToast('Escribe un nombre para el hábito','⚠️');
+      return;
+    }
+    if(!data.customHabits)data.customHabits={};
+    const customId='custom_'+Date.now();
+    data.customHabits[customId]={name:inputVal,goal:1,created:new Date().toISOString()};
+    showToast('Meta personalizada añadida','✅');
+  } else {
+    const newGoal=parseInt(inputVal)||1;
+    if(!data.goals)data.goals={};
+    data.goals[habitId]=Math.max(1,Math.min(10,newGoal));
+    showToast('Meta actualizada','✅');
+  }
+  
   localStorage.setItem('bienestar-v2', JSON.stringify(data));
   scheduleSave();
   closeModal();
   render();
-  showToast('Meta actualizada','✅');
 }
 
 function addCustomHabit(){
@@ -596,18 +609,18 @@ function exportData(){
 
 function exportCSV(){
   const last30=getLast30();
-  let csv='Fecha,Alcohol,Café,Meditación,Yoga,Máster,Estiramientos,Skincare\n';
+  let csv='Fecha,Alcohol,Cafe,Meditacion,Yoga,Master,Estiramientos,Skincare\n';
   last30.forEach(k=>{
     const a=getNum('alcohol',k);
     const c=getNum('cafe',k);
-    const m=getBool('medit',k)?'✓':'';
-    const y=getBool('yoga',k)?'✓':'';
-    const ma=getBool('master',k)?'✓':'';
-    const ce=getBool('cervical',k)?'✓':'';
-    const sk=getSkin(k).am&&getSkin(k).pm?'✓':getSkin(k).am||getSkin(k).pm?'½':'';
+    const m=getBool('medit',k)?'1':'0';
+    const y=getBool('yoga',k)?'1':'0';
+    const ma=getBool('master',k)?'1':'0';
+    const ce=getBool('cervical',k)?'1':'0';
+    const sk=(getSkin(k).am&&getSkin(k).pm)?'2':(getSkin(k).am||getSkin(k).pm)?'1':'0';
     csv+=`${k},${a},${c},${m},${y},${ma},${ce},${sk}\n`;
   });
-  const blob=new Blob([csv],{type:'text/csv'});
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
   a.href=url;
