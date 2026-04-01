@@ -537,6 +537,16 @@ function renderConfig(){
       <button onclick="openGoalModal('${hb.id}','${hb.label}',${goal})" style="padding:6px 12px;border-radius:8px;border:2px solid #10b981;background:transparent;color:#10b981;font-weight:700;cursor:pointer">${goal}/sem</button>
     </div>`;
   });
+  if(data.customHabits && Object.keys(data.customHabits).length>0){
+    h+='<div style="margin-top:12px;border-top:1px solid rgba(255,255,255,.1);padding-top:12px"><div style="font-size:12px;color:rgba(255,255,255,.5);margin-bottom:8px">METAS ADICIONALES</div>';
+    Object.entries(data.customHabits).forEach(([id,habit])=>{
+      h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding:8px;background:rgba(255,255,255,.02);border-radius:8px;border-left:3px solid #a78bfa">
+        <span style="font-weight:600;font-size:14px">${habit.name}</span>
+        <button onclick="deleteCustomHabit('${id}')" style="padding:4px 8px;border-radius:6px;border:none;background:#ef444433;color:#ef4444;font-weight:700;cursor:pointer;font-size:12px">Eliminar</button>
+      </div>`;
+    });
+    h+='</div>';
+  }
   h+='<button onclick="addCustomHabit()" style="width:100%;padding:12px;border-radius:12px;border:2px solid #a78bfa;background:transparent;color:#a78bfa;font-weight:700;cursor:pointer;margin-top:12px">+ Añadir Meta Personalizada</button>';
   h+='</div>';
   h+='<div style="background:rgba(255,255,255,.07);border-radius:20px;padding:20px"><div class="section-lbl" style="margin-bottom:12px">Exportar Datos</div>';
@@ -609,23 +619,26 @@ function exportData(){
 
 function exportCSV(){
   const last30=getLast30();
-  let csv='Fecha,Alcohol,Cafe,Meditacion,Yoga,Master,Estiramientos,Skincare\n';
+  let csv='Fecha,Alcohol,Cafe,Meditacion,Yoga,Master,Estiramientos,Skincare\r\n';
   last30.forEach(k=>{
     const a=getNum('alcohol',k);
     const c=getNum('cafe',k);
-    const m=getBool('medit',k)?'1':'0';
-    const y=getBool('yoga',k)?'1':'0';
-    const ma=getBool('master',k)?'1':'0';
-    const ce=getBool('cervical',k)?'1':'0';
-    const sk=(getSkin(k).am&&getSkin(k).pm)?'2':(getSkin(k).am||getSkin(k).pm)?'1':'0';
-    csv+=`${k},${a},${c},${m},${y},${ma},${ce},${sk}\n`;
+    const m=getBool('medit',k)?1:0;
+    const y=getBool('yoga',k)?1:0;
+    const ma=getBool('master',k)?1:0;
+    const ce=getBool('cervical',k)?1:0;
+    const sk=(getSkin(k).am&&getSkin(k).pm)?2:(getSkin(k).am||getSkin(k).pm)?1:0;
+    csv+=`${k},${a},${c},${m},${y},${ma},${ce},${sk}\r\n`;
   });
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const link=document.createElement('a');
   const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url;
-  a.download=`bienestar-${TODAY_KEY}.csv`;
-  a.click();
+  link.setAttribute('href',url);
+  link.setAttribute('download',`bienestar-${TODAY_KEY}.csv`);
+  link.style.visibility='hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
   showToast('CSV exportado','📊');
 }
 
