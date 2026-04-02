@@ -14,15 +14,24 @@ body{background:linear-gradient(160deg,#0f0c29,#302b63,#24243e);min-height:100vh
 #login h1{font-size:28px;font-weight:800;margin:16px 0}
 #login input{width:100%;max-width:300px;padding:14px 16px;border-radius:12px;border:2px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff;font-size:16px;outline:none;margin-bottom:12px}
 #login button{width:100%;max-width:300px;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#7c3aed,#a78bfa);color:#fff;font-weight:700;cursor:pointer;font-size:16px}
-.header{padding:32px 20px 16px}
-.title{font-size:26px;font-weight:800}
-.card{background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.12);border-radius:18px;padding:16px 18px;margin:10px 16px;display:flex;justify-content:space-between;align-items:center}
+.header{padding:24px 20px 8px}
+.title{font-size:24px;font-weight:800}
+.date-nav{display:flex;align-items:center;justify-content:space-between;padding:8px 16px 4px}
+.date-nav button{background:rgba(255,255,255,.1);border:none;color:#fff;font-size:22px;width:36px;height:36px;border-radius:50%;cursor:pointer}
+.date-nav button:disabled{opacity:.2;cursor:default}
+.date-label{font-size:15px;font-weight:600;text-align:center}
+.date-sub{font-size:11px;opacity:.5;display:block;text-align:center}
+.card{background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.12);border-radius:18px;padding:16px 18px;margin:8px 16px;display:flex;justify-content:space-between;align-items:center}
 .stepper{display:flex;align-items:center;gap:10px}
-.step-btn{width:32px;height:32px;border-radius:50%;border:2px solid;background:transparent;font-weight:900;font-size:18px;cursor:pointer}
-.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:rgba(10,8,40,.95);display:flex;justify-content:space-around;padding:12px 0 24px;border-top:1px solid rgba(255,255,255,.08)}
-.nav-tab{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;opacity:.35}
+.step-btn{width:32px;height:32px;border-radius:50%;border:2px solid;background:transparent;font-weight:900;font-size:18px;cursor:pointer;line-height:1}
+.stat-card{background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.12);border-radius:18px;padding:14px 18px;margin:6px 16px}
+.section-label{padding:10px 16px 2px;font-size:11px;font-weight:700;opacity:.4;letter-spacing:.08em;text-transform:uppercase}
+.prog-bg{height:6px;background:rgba(255,255,255,.1);border-radius:3px;margin-top:8px}
+.prog-fill{height:6px;border-radius:3px;transition:width .4s}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:rgba(10,8,40,.95);display:flex;justify-content:space-around;padding:10px 0 22px;border-top:1px solid rgba(255,255,255,.08)}
+.nav-tab{display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;opacity:.35;font-size:10px}
 .nav-tab.active{opacity:1}
-.content{padding:0 16px 80px}
+.content{padding:0 0 80px}
 #syncDot{width:8px;height:8px;border-radius:50%;background:#f59e0b;position:fixed;top:16px;right:16px;z-index:100;transition:background .3s}
 #errorBanner{position:fixed;top:28px;left:12px;right:28px;background:#7f1d1d;border:1px solid #ef4444;border-radius:10px;padding:10px 14px;font-size:12px;z-index:200;display:none;word-break:break-all}
 </style>
@@ -49,10 +58,10 @@ body{background:linear-gradient(160deg,#0f0c29,#302b63,#24243e);min-height:100vh
 <div class="content hidden" id="content"></div>
 
 <div class="bottom-nav hidden" id="nav">
-  <div class="nav-tab active" onclick="setView('today')">🌿 Hoy</div>
-  <div class="nav-tab" onclick="setView('stats')">📊 Stats</div>
-  <div class="nav-tab" onclick="setView('reto')">🏆 Reto</div>
-  <div class="nav-tab" onclick="setView('config')">⚙️ Config</div>
+  <div class="nav-tab active" onclick="setView('today')"><span style="font-size:20px">🌿</span>Hoy</div>
+  <div class="nav-tab" onclick="setView('stats')"><span style="font-size:20px">📊</span>Stats</div>
+  <div class="nav-tab" onclick="setView('reto')"><span style="font-size:20px">🏆</span>Reto</div>
+  <div class="nav-tab" onclick="setView('config')"><span style="font-size:20px">⚙️</span>Config</div>
 </div>
 
 <script>
@@ -62,9 +71,16 @@ const sb=createClient(
   'sb_publishable_ky2MSt6wntdRzKzbFk4Zow_9HF2LFQC'
 );
 
-const TODAY=new Date();
+const TODAY=new Date();TODAY.setHours(0,0,0,0);
+let activeDate=new Date(TODAY);
+
+const DAYS=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+const MONTHS=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
 function localKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-const TODAY_KEY=localKey(TODAY);
+function sameDay(a,b){return localKey(a)===localKey(b);}
+function daysAgo(d){return Math.round((TODAY-d)/86400000);}
+function fmtDate(d){const a=daysAgo(d);if(a===0)return'Hoy';if(a===1)return'Ayer';return DAYS[d.getDay()]+', '+d.getDate()+' de '+MONTHS[d.getMonth()];}
 
 const HABITS=[
   {id:'alcohol',label:'Alcohol',icon:'🍷',type:'bad',unit:'copas'},
@@ -77,181 +93,230 @@ const HABITS=[
 ];
 
 let data={alcohol:{},cafe:{},medit:{},yoga:{},master:{},cervical:{},skincare:{},goals:{medit:1,yoga:2,master:3,cervical:4}};
-let userEmail='',view='today',saveTimer=null,isOnline=false;
+let userEmail='',view='today',saveTimer=null,isOnline=false,statsMode='weekly';
 
-function showError(msg){
-  const b=document.getElementById('errorBanner');
-  b.textContent='⚠️ '+msg;
-  b.style.display='block';
-  setTimeout(()=>{b.style.display='none';},8000);
-}
-
-function setSyncDot(state){
-  const dot=document.getElementById('syncDot');
-  dot.style.background=state==='ok'?'#10b981':state==='saving'?'#f59e0b':'#ef4444';
-  dot.title=state==='ok'?'Sincronizado':state==='saving'?'Guardando...':'Sin conexión';
-}
+function showError(msg){const b=document.getElementById('errorBanner');b.textContent='⚠️ '+msg;b.style.display='block';setTimeout(()=>{b.style.display='none';},8000);}
+function setSyncDot(s){const d=document.getElementById('syncDot');d.style.background=s==='ok'?'#10b981':s==='saving'?'#f59e0b':'#ef4444';}
 
 function doLogin(){
   const email=document.getElementById('emailInput').value.trim().toLowerCase();
   if(!email||!email.includes('@'))return;
-  userEmail=email;
-  localStorage.setItem('bienestar-email',email);
-  loadData();
+  userEmail=email;localStorage.setItem('bienestar-email',email);loadData();
 }
+
+window.onload=()=>{
+  const saved=localStorage.getItem('bienestar-email');
+  if(saved){userEmail=saved;document.getElementById('emailInput').value=saved;loadData();}
+};
 
 async function loadData(){
   setSyncDot('saving');
-  // Cargar desde localStorage inmediatamente (modo offline rápido)
   try{const s=localStorage.getItem('bienestar-v2');if(s)data=JSON.parse(s);}catch(e){}
-
   try{
-    const {data:rows,error}=await sb
-      .from('habit_data')
-      .select('*')
-      .eq('user_email',userEmail)
-      .maybeSingle();
-
-    if(error){
-      showError('Supabase error: '+error.message+' ('+error.code+')');
-      setSyncDot('error');
-      isOnline=false;
-    } else {
-      if(rows?.data) data=JSON.parse(JSON.stringify(rows.data));
-      isOnline=true;
-      setSyncDot('ok');
-    }
-  }catch(e){
-    showError('Error de red: '+e.message);
-    setSyncDot('error');
-    isOnline=false;
-  }
-
+    const {data:rows,error}=await sb.from('habit_data').select('*').eq('user_email',userEmail).maybeSingle();
+    if(error){showError('Supabase: '+error.message);setSyncDot('error');isOnline=false;}
+    else{if(rows?.data)data=JSON.parse(JSON.stringify(rows.data));isOnline=true;setSyncDot('ok');}
+  }catch(e){showError('Red: '+e.message);setSyncDot('error');isOnline=false;}
   document.getElementById('login').classList.add('hidden');
-  document.getElementById('header').classList.remove('hidden');
-  document.getElementById('content').classList.remove('hidden');
-  document.getElementById('nav').classList.remove('hidden');
+  ['header','content','nav'].forEach(id=>document.getElementById(id).classList.remove('hidden'));
   document.getElementById('userEmail').textContent=userEmail+(isOnline?'':' (offline)');
   render();
 }
 
 async function saveData(){
   localStorage.setItem('bienestar-v2',JSON.stringify(data));
-  if(!isOnline) return;
+  if(!isOnline)return;
   setSyncDot('saving');
   try{
-    const {data:existing}=await sb.from('habit_data').select('id').eq('user_email',userEmail).maybeSingle();
-    if(existing?.id){
-      await sb.from('habit_data').update({data:data,updated_at:new Date().toISOString()}).eq('user_email',userEmail);
-    }else{
-      await sb.from('habit_data').insert({user_email:userEmail,data:data,updated_at:new Date().toISOString()});
-    }
+    const {data:ex}=await sb.from('habit_data').select('id').eq('user_email',userEmail).maybeSingle();
+    if(ex?.id)await sb.from('habit_data').update({data,updated_at:new Date().toISOString()}).eq('user_email',userEmail);
+    else await sb.from('habit_data').insert({user_email:userEmail,data,updated_at:new Date().toISOString()});
     setSyncDot('ok');
-  }catch(e){
-    setSyncDot('error');
-    showError('Error al guardar: '+e.message);
-  }
+  }catch(e){setSyncDot('error');showError('Guardar: '+e.message);}
 }
 
 function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(saveData,1000);}
 function getNum(id,k){return Number(data[id]?.[k]||0);}
 function getBool(id,k){return !!data[id]?.[k];}
 function getGoal(id){return data.goals?.[id]||1;}
-function boolStreak(id){let s=0;for(let i=0;i<365;i++){const d=new Date(TODAY);d.setDate(TODAY.getDate()-i);if(data[id]?.[localKey(d)])s++;else break;}return s;}
-function setView(v){view=v;document.querySelectorAll('.nav-tab').forEach((t,i)=>t.classList.toggle('active',['today','stats','reto','config'][i]===v));render();}
 
-window.onload=()=>{
-  const saved=localStorage.getItem('bienestar-email');
-  if(saved){
-    userEmail=saved;
-    document.getElementById('emailInput').value=saved;
-    loadData(); // Auto-login si hay email guardado
-  }
-};
+function daysInRange(start,end){
+  const days=[];const cur=new Date(start);cur.setHours(0,0,0,0);
+  const fin=new Date(end);fin.setHours(23,59,59,0);
+  while(cur<=fin&&cur<=TODAY){days.push(localKey(new Date(cur)));cur.setDate(cur.getDate()+1);}
+  return days;
+}
+
+function weekRange(){
+  const dow=TODAY.getDay();const diff=dow===0?-6:1-dow;
+  const mon=new Date(TODAY);mon.setDate(TODAY.getDate()+diff);
+  const sun=new Date(mon);sun.setDate(mon.getDate()+6);
+  return{start:mon,end:sun};
+}
+
+function monthRange(){
+  return{start:new Date(TODAY.getFullYear(),TODAY.getMonth(),1),end:new Date(TODAY.getFullYear(),TODAY.getMonth()+1,0)};
+}
+
+function alcoholStreak(){
+  let s=0;
+  for(let i=0;i<365;i++){const d=new Date(TODAY);d.setDate(TODAY.getDate()-i);const k=localKey(d);if(data.alcohol?.[k]!==undefined&&Number(data.alcohol[k])===0)s++;else break;}
+  return s;
+}
+
+function boolStreak(id){
+  let s=0;
+  for(let i=0;i<365;i++){const d=new Date(TODAY);d.setDate(TODAY.getDate()-i);if(data[id]?.[localKey(d)])s++;else break;}
+  return s;
+}
+
+function setView(v){
+  view=v;
+  document.querySelectorAll('.nav-tab').forEach((t,i)=>t.classList.toggle('active',['today','stats','reto','config'][i]===v));
+  render();
+}
+
+function shiftDate(delta){
+  const next=new Date(activeDate);next.setDate(activeDate.getDate()+delta);
+  if(next>TODAY)return;
+  activeDate=next;render();
+}
 
 function render(){
+  const DK=localKey(activeDate);
+  const isToday=sameDay(activeDate,TODAY);
   let html='';
+
   if(view==='today'){
+    html+=`<div class="date-nav">
+      <button onclick="shiftDate(-1)">‹</button>
+      <div style="text-align:center;flex:1">
+        <div class="date-label">${fmtDate(activeDate)}</div>
+        <span class="date-sub">${activeDate.getDate()} de ${MONTHS[activeDate.getMonth()]} ${activeDate.getFullYear()}</span>
+      </div>
+      <button onclick="shiftDate(1)" ${isToday?'disabled':''}>›</button>
+    </div>`;
+
     HABITS.filter(x=>x.type==='bad'||x.type==='limit').forEach(hb=>{
-      const val=getNum(hb.id,TODAY_KEY),isLim=hb.type==='limit';
-      let border,bg,sc,btnColor;
+      const val=getNum(hb.id,DK),isLim=hb.type==='limit';
+      let bo,bg,sc,bc;
       if(isLim){
-        if(val>hb.max+2){border='#ef4444';bg='rgba(239,68,68,0.10)';sc='#ef4444';btnColor='#ef4444';}
-        else if(val>hb.max){border='#f97316';bg='rgba(249,115,22,0.10)';sc='#f97316';btnColor='#f97316';}
-        else{border='#10b981';bg='rgba(16,185,129,0.10)';sc='#10b981';btnColor='#10b981';}
+        if(val>hb.max+2){bo='#ef4444';bg='rgba(239,68,68,0.10)';sc='#ef4444';bc='#ef4444';}
+        else if(val>hb.max){bo='#f97316';bg='rgba(249,115,22,0.10)';sc='#f97316';bc='#f97316';}
+        else{bo='#10b981';bg='rgba(16,185,129,0.10)';sc='#10b981';bc='#10b981';}
       }else{
-        if(val>=3){border='#ef4444';bg='rgba(239,68,68,0.10)';sc='#ef4444';btnColor='#ef4444';}
-        else if(val>=1){border='#f97316';bg='rgba(249,115,22,0.10)';sc='#f97316';btnColor='#f97316';}
-        else{border='#10b981';bg='rgba(16,185,129,0.10)';sc='#10b981';btnColor='#10b981';}
+        if(val>=3){bo='#ef4444';bg='rgba(239,68,68,0.10)';sc='#ef4444';bc='#ef4444';}
+        else if(val>=1){bo='#f97316';bg='rgba(249,115,22,0.10)';sc='#f97316';bc='#f97316';}
+        else{bo='#10b981';bg='rgba(16,185,129,0.10)';sc='#10b981';bc='#10b981';}
       }
-      html+=`<div class="card" style="background:${bg};border-color:${border}"><div><div style="font-size:22px">${hb.icon}</div><div style="font-weight:700;font-size:15px">${hb.label}</div><div style="font-size:13px;color:${sc}">${val} ${hb.unit}</div></div><div class="stepper"><button class="step-btn" style="color:${btnColor};border-color:${btnColor}" onclick="changeNum('${hb.id}',${val-1})">−</button><span style="font-weight:700;font-size:17px">${val}</span><button class="step-btn" style="color:#fff;background:${btnColor};border-color:${btnColor}" onclick="changeNum('${hb.id}',${val+1})">+</button></div></div>`;
+      html+=`<div class="card" style="background:${bg};border-color:${bo}">
+        <div><div style="font-size:22px">${hb.icon}</div><div style="font-weight:700;font-size:15px">${hb.label}</div><div style="font-size:13px;color:${sc}">${val} ${hb.unit}</div></div>
+        <div class="stepper">
+          <button class="step-btn" style="color:${bc};border-color:${bc}" onclick="changeNum('${hb.id}','${DK}',${val-1})">−</button>
+          <span style="font-weight:700;font-size:17px">${val}</span>
+          <button class="step-btn" style="color:#fff;background:${bc};border-color:${bc}" onclick="changeNum('${hb.id}','${DK}',${val+1})">+</button>
+        </div>
+      </div>`;
     });
+
     HABITS.filter(x=>x.type==='weekly').forEach(hb=>{
-      const done=getBool(hb.id,TODAY_KEY);
-      html+=`<div class="card" style="background:${done?'#10b98125':'rgba(255,255,255,0.07)'};border-color:${done?'#10b981':'rgba(255,255,255,0.12)'}" onclick="toggleBool('${hb.id}')"><div><div style="font-size:22px">${hb.icon}</div><div style="font-weight:700;font-size:15px">${hb.label}</div><div style="color:${done?'#10b981':'rgba(255,255,255,.45)'}">${done?'Hecho ✅':'Pendiente'}</div></div></div>`;
+      const done=getBool(hb.id,DK);
+      html+=`<div class="card" style="background:${done?'#10b98125':'rgba(255,255,255,0.07)'};border-color:${done?'#10b981':'rgba(255,255,255,0.12)'}" onclick="toggleBool('${hb.id}','${DK}')">
+        <div><div style="font-size:22px">${hb.icon}</div><div style="font-weight:700;font-size:15px">${hb.label}</div><div style="color:${done?'#10b981':'rgba(255,255,255,.45)'}">${done?'Hecho ✅':'Pendiente'}</div></div>
+      </div>`;
     });
+
   }else if(view==='stats'){
-    const last7=Array.from({length:7},(_,i)=>{const d=new Date(TODAY);d.setDate(TODAY.getDate()-i);return localKey(d);});
+    html+=`<div style="display:flex;gap:8px;padding:14px 16px 6px">
+      <button onclick="statsMode='weekly';render()" style="flex:1;padding:9px;border-radius:10px;border:2px solid ${statsMode==='weekly'?'#7c3aed':'rgba(255,255,255,.15)'};background:${statsMode==='weekly'?'rgba(124,58,237,.2)':'transparent'};color:#fff;font-weight:700;cursor:pointer;font-size:14px">Esta semana</button>
+      <button onclick="statsMode='monthly';render()" style="flex:1;padding:9px;border-radius:10px;border:2px solid ${statsMode==='monthly'?'#7c3aed':'rgba(255,255,255,.15)'};background:${statsMode==='monthly'?'rgba(124,58,237,.2)':'transparent'};color:#fff;font-weight:700;cursor:pointer;font-size:14px">Este mes</button>
+    </div>`;
+
+    const range=statsMode==='weekly'?weekRange():monthRange();
+    const days=daysInRange(range.start,range.end);
+    const totalDays=days.length;
+
+    html+=`<div class="section-label">Actividades</div>`;
     HABITS.filter(x=>x.type==='weekly').forEach(hb=>{
-      const done=last7.filter(k=>data[hb.id]?.[k]).length;
-      const goal=getGoal(hb.id);
-      const pct=Math.round(done/Math.max(goal,1)*100);
-      html+=`<div class="card"><div style="flex:1"><div style="font-weight:700">${hb.icon} ${hb.label}</div><div style="font-size:13px;opacity:.6;margin-top:2px">${done}/${goal} esta semana</div><div style="height:6px;background:rgba(255,255,255,.1);border-radius:3px;margin-top:8px"><div style="height:6px;border-radius:3px;width:${Math.min(pct,100)}%;background:${pct>=100?'#10b981':pct>=50?'#f59e0b':'#ef4444'}"></div></div></div><div style="font-weight:700;font-size:18px;margin-left:12px">${pct}%</div></div>`;
+      const done=days.filter(k=>data[hb.id]?.[k]).length;
+      const goal=statsMode==='weekly'?getGoal(hb.id):Math.ceil(getGoal(hb.id)/7*totalDays);
+      const pct=goal>0?Math.round(done/goal*100):0;
+      const color=pct>=100?'#10b981':pct>=60?'#f59e0b':'#ef4444';
+      html+=`<div class="stat-card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-weight:700">${hb.icon} ${hb.label}</div>
+          <div style="font-weight:700;font-size:18px;color:${color}">${pct}%</div>
+        </div>
+        <div style="font-size:12px;opacity:.5;margin-top:3px">${done} de ${goal} ${statsMode==='weekly'?'esta semana':'este mes'}</div>
+        <div class="prog-bg"><div class="prog-fill" style="width:${Math.min(pct,100)}%;background:${color}"></div></div>
+      </div>`;
     });
+
+    html+=`<div class="section-label">Consumo</div>`;
+    [{id:'alcohol',icon:'🍷',label:'Alcohol',unit:'copas'},{id:'cafe',icon:'☕',label:'Café',unit:'tazas'}].forEach(hb=>{
+      const total=days.reduce((a,k)=>a+getNum(hb.id,k),0);
+      const avg=totalDays>0?(total/totalDays).toFixed(1):0;
+      html+=`<div class="stat-card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-weight:700">${hb.icon} ${hb.label}</div>
+          <div style="font-weight:700;font-size:18px">${total} ${hb.unit}</div>
+        </div>
+        <div style="font-size:12px;opacity:.5;margin-top:3px">Media ${avg}/día · ${totalDays} días registrados</div>
+      </div>`;
+    });
+
   }else if(view==='reto'){
-    const cs=function(){let s=0;for(let i=0;i<365;i++){const d=new Date(TODAY);d.setDate(TODAY.getDate()-i);const k=localKey(d);if(data.alcohol?.[k]!==undefined&&Number(data.alcohol[k])===0)s++;else break;}return s;}();
-    html+=`<div class="card"><div><div style="font-size:18px">🍷 Sin alcohol</div><div style="color:#10b981;font-weight:700">🔥 ${cs} días</div></div></div>`;
+    html+=`<div class="section-label" style="padding-top:14px">Rachas actuales</div>`;
+    const cs=alcoholStreak();
+    html+=`<div class="card" style="background:${cs>0?'rgba(16,185,129,.08)':''}">
+      <div><div style="font-size:16px;font-weight:700">🍷 Sin alcohol</div></div>
+      <div style="color:#10b981;font-weight:800;font-size:24px">🔥 ${cs} días</div>
+    </div>`;
     HABITS.filter(x=>x.type==='weekly').forEach(hb=>{
       const s=boolStreak(hb.id);
-      html+=`<div class="card"><div><div style="font-size:18px">${hb.icon} ${hb.label}</div><div style="color:#10b981;font-weight:700">🔥 ${s} días</div></div></div>`;
+      html+=`<div class="card" style="background:${s>0?'rgba(16,185,129,.08)':''}">
+        <div><div style="font-size:16px;font-weight:700">${hb.icon} ${hb.label}</div></div>
+        <div style="color:#10b981;font-weight:800;font-size:24px">🔥 ${s} días</div>
+      </div>`;
     });
+
   }else if(view==='config'){
+    html+=`<div class="section-label" style="padding-top:14px">Metas semanales</div>`;
     HABITS.filter(x=>x.type==='weekly').forEach(hb=>{
       const goal=getGoal(hb.id);
-      html+=`<div class="card"><span style="font-weight:700">${hb.icon} ${hb.label}</span><button onclick="setGoal('${hb.id}',${goal})" style="padding:6px 12px;border-radius:8px;border:2px solid #10b981;background:transparent;color:#10b981;font-weight:700;cursor:pointer">${goal}/sem</button></div>`;
+      html+=`<div class="card">
+        <span style="font-weight:700">${hb.icon} ${hb.label}</span>
+        <button onclick="setGoal('${hb.id}',${goal})" style="padding:6px 14px;border-radius:8px;border:2px solid #10b981;background:transparent;color:#10b981;font-weight:700;cursor:pointer">${goal}/sem</button>
+      </div>`;
     });
-    html+=`<div class="card" style="flex-direction:column;gap:8px;align-items:flex-start">
-      <div style="font-weight:700;font-size:13px;opacity:.6">ESTADO DE SYNC</div>
-      <div id="syncStatus" style="font-size:13px">${isOnline?'✅ Conectado a Supabase':'❌ Modo offline — datos guardados localmente'}</div>
-      <button onclick="retrySync()" style="padding:6px 12px;border-radius:8px;border:2px solid #7c3aed;background:transparent;color:#a78bfa;font-weight:700;cursor:pointer">🔄 Reintentar sync</button>
+    html+=`<div class="section-label">Sincronización</div>
+    <div class="stat-card" style="flex-direction:column;align-items:flex-start;gap:8px">
+      <div>${isOnline?'✅ Conectado':'❌ Offline'} · ${userEmail}</div>
+      <button onclick="retrySync()" style="padding:6px 14px;border-radius:8px;border:2px solid #7c3aed;background:transparent;color:#a78bfa;font-weight:700;cursor:pointer">🔄 Reintentar sync</button>
+    </div>
+    <div class="card" style="margin-top:4px">
+      <button onclick="logoutFunc()" style="width:100%;padding:12px;border:2px solid #ef4444;background:transparent;color:#ef4444;font-weight:700;cursor:pointer;border-radius:12px">Cerrar sesión</button>
     </div>`;
-    html+=`<div class="card"><button onclick="logoutFunc()" style="width:100%;padding:12px;border:2px solid #ef4444;background:transparent;color:#ef4444;font-weight:700;cursor:pointer;border-radius:12px">Cerrar sesión</button></div>`;
   }
+
   document.getElementById('content').innerHTML=html;
 }
 
-function changeNum(id,val){
+function changeNum(id,dk,val){
   if(val<0)val=0;
   if(!data[id])data[id]={};
-  data[id][TODAY_KEY]=val;
-  scheduleSave();render();
+  data[id][dk]=val;scheduleSave();render();
 }
-
-function toggleBool(id){
-  const next=!getBool(id,TODAY_KEY);
+function toggleBool(id,dk){
   if(!data[id])data[id]={};
-  data[id][TODAY_KEY]=next;
-  scheduleSave();render();
+  data[id][dk]=!getBool(id,dk);scheduleSave();render();
 }
-
-function setGoal(id,current){
-  const newGoal=prompt(`Meta semanal para ${HABITS.find(h=>h.id===id).label}:`,current);
-  if(newGoal){
-    if(!data.goals)data.goals={};
-    data.goals[id]=Math.max(1,Math.min(10,parseInt(newGoal)||1));
-    scheduleSave();render();
-  }
+function setGoal(id,cur){
+  const nv=prompt('Meta semanal para '+HABITS.find(h=>h.id===id).label+':',cur);
+  if(nv){if(!data.goals)data.goals={};data.goals[id]=Math.max(1,Math.min(10,parseInt(nv)||1));scheduleSave();render();}
 }
-
-async function retrySync(){
-  isOnline=false;
-  await loadData();
-}
-
-function logoutFunc(){
-  localStorage.removeItem('bienestar-email');
-  location.reload();
-}
+async function retrySync(){isOnline=false;await loadData();}
+function logoutFunc(){localStorage.removeItem('bienestar-email');location.reload();}
 </script>
 </body>
 </html>
