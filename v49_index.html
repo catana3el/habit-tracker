@@ -1,13 +1,27 @@
-<!-- Updated HABITS array and data object for habit ID 'yoga' -->
+<html>
+<head>
+    <title>Habit Tracker</title>
+</head>
+<body>
+    <h1>Habit Tracker</h1>
+    <script>
+        const HABITS = [
+            "yoga-ejercicio",
+            // other habits
+        ];
 
-const HABITS = ['yoga-ejercicio', ...];
+        const data = {
+            currentHabit: "yoga-ejercicio",
+            // other properties
+        };
 
-const data = {
-    habit: 'yoga-ejercicio',
-    ...
-};
-
-const goals = {
-    habit: 'yoga-ejercicio',
-    ...
-};
+        const goals = {
+            "yoga-ejercicio": {
+                target: 30,
+                achieved: 0,
+            },
+            // other goals
+        };
+    </script>
+</body>
+</html>
