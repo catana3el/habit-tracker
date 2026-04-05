@@ -145,6 +145,59 @@ function getBool(id,k){return !!data[id]?.[k];}
 function getSkin(k){return data.skincare?.[k]||{am:false,pm:false};}
 function getGoal(id){return data.goals?.[id]||1;}
 
+async function saveToGoogleDrive(){
+  if(!googleAccessToken){showError('Necesitas autenticarte con Google Drive');return;}
+  try{
+    setSyncDot('saving');
+    const fileName=`bienestar-backup-${new Date().toISOString().slice(0,10)}.json`;
+    const fileContent=JSON.stringify(data,null,2);
+    const blob=new Blob([fileContent],{type:'application/json'});
+    const formData=new FormData();
+    formData.append('metadata',new Blob([JSON.stringify({name:fileName,mimeType:'application/json'})],{type:'application/json'}));
+    formData.append('file',blob);
+    const response=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{
+      method:'POST',
+      headers:{'Authorization':`Bearer ${googleAccessToken}`},
+      body:formData
+    });
+    if(response.ok){setSyncDot('ok');showError('✅ Guardado en Google Drive');}
+    else{setSyncDot('error');showError('Error al guardar en Drive');}
+  }catch(e){setSyncDot('error');showError('Error Drive: '+e.message);}
+}
+
+function exportJSON(){
+  const dataStr=JSON.stringify(data,null,2);
+  const dataBlob=new Blob([dataStr],{type:'application/json'});
+  const url=URL.createObjectURL(dataBlob);
+  const link=document.createElement('a');
+  link.href=url;
+  link.download=`bienestar-export-${new Date().toISOString().slice(0,10)}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function importJSON(){
+  const input=document.createElement('input');
+  input.type='file';
+  input.accept='.json';
+  input.onchange=(e)=>{
+    const file=e.target.files[0];
+    const reader=new FileReader();
+    reader.onload=(event)=>{
+      try{
+        const imported=JSON.parse(event.target.result);
+        data=imported;
+        localStorage.setItem('bienestar-v2',JSON.stringify(data));
+        saveData();
+        render();
+        showError('✅ Datos importados');
+      }catch(err){showError('Error al importar JSON');}
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+  
 function daysInRange(start,end){
   const days=[];const cur=new Date(start);cur.setHours(0,0,0,0);
   const fin=new Date(end);fin.setHours(23,59,59,0);
